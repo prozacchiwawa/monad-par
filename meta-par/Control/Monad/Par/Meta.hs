@@ -59,7 +59,7 @@ import Data.Concurrent.Deque.Class (WSDeque)
 import Data.Concurrent.Deque.Reference.DequeInstance ()
 import Data.Concurrent.Deque.Reference as R
 import qualified Data.ByteString.Char8 as BS
-import Data.Monoid
+import Data.Monoid ()
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable (Typeable)
@@ -171,6 +171,10 @@ newtype Startup = St { runSt ::
 instance Show Startup where
   show _ = "<Startup>"
 
+instance Semigroup Startup where
+  (<>) (St st1) (St st2) = St st'
+    where st' ws schedMap = st1 ws schedMap >> st2 ws schedMap
+
 instance Monoid Startup where
   mempty = St $ \_ _ -> return ()
   (St st1) `mappend` (St st2) = St st'
@@ -188,6 +192,14 @@ newtype WorkSearch = WS { runWS ::
 
 instance Show WorkSearch where
   show _ = "<WorkSearch>"
+
+instance Semigroup WorkSearch where
+  (<>) (WS ws1) (WS ws2) = WS ws'
+    where ws' sched schedMap = do
+            mwork <- ws1 sched schedMap
+            case mwork of
+              Nothing -> ws2 sched schedMap
+              _ -> return mwork
 
 instance Monoid WorkSearch where
   mempty = WS $ \_ _ -> return Nothing
@@ -208,6 +220,10 @@ data Resource = Resource {
     startup  :: Startup
   , workSearch :: WorkSearch
   } deriving (Show)
+
+instance Semigroup Resource where
+  (<>) (Resource st1 ws1) (Resource st2 ws2) =
+    Resource (st1 <> st2) (ws1 <> ws2)
 
 instance Monoid Resource where
   mempty = Resource mempty mempty
